@@ -13,21 +13,39 @@ apps/golf              "Neon Golf"   — 3 lubang (tempo, bidang ayun, kemiringa
 apps/lab               alat kalibrasi dan diagnosis tracker
 ```
 
-## Menjalankan
+## Menjalankan di komputer lokal (Windows / Laragon / macOS / Linux)
+
+Yang dibutuhkan: **Git** dan **Node.js ≥ 20.19** (disarankan 22 LTS; cek dengan `node -v`).
+Tidak perlu Apache, PHP, atau MySQL: Vite punya server dev sendiri. Laragon boleh dipakai sebagai folder
+dan terminalnya, tetapi tidak wajib. Folder bebas, tidak harus di `www`.
 
 ```bash
+git clone https://github.com/bakhtiarzein/games-movement.git
+cd games-movement
 npm install
+npm run dev:lab      # mulai dari sini: pastikan warna ujung/gagang terbaca di kamera (http://localhost:5174)
+npm run dev:golf     # http://localhost:5176
+```
+
+Buka alamat yang tercetak di terminal lalu izinkan akses kamera. Perintah lain:
+
+```bash
 npm run dev:sword    # http://localhost:5173
 npm run dev:tennis   # http://localhost:5175
-npm run dev:golf     # http://localhost:5176
-npm run dev:lab      # http://localhost:5174
 npm test             # tes engine, tenis, golf, game-kit
 npm run typecheck
 npm run build
 ```
 
-Kamera butuh `localhost` atau HTTPS. Semua game punya **mode demo (mouse)** tanpa webcam.
-Mulai dengan `dev:lab` untuk memastikan warna ujung/gagang terbaca di kamera Anda (lihat "Ujung hilang saat ayunan").
+Catatan penting:
+
+- **Kamera hanya diizinkan di `http://localhost` (atau HTTPS).** Jangan membukanya lewat virtual host Laragon
+  `*.test` yang berbasis HTTP atau lewat alamat IP jaringan (mis. `http://192.168.x.x`): browser akan memblokir kamera.
+  Mode demo (mouse/sentuh) tetap jalan di alamat mana pun.
+- Ingin membuka dari HP di jaringan yang sama (hanya mode demo sentuh): jalankan `npm run dev:golf -- --host`.
+- Tutup aplikasi lain yang sedang memakai webcam (Zoom, Teams, OBS) agar kamera bisa dibuka.
+- Jika port bentrok, Vite memakai port berikutnya; lihat alamat yang dicetak di terminal.
+- Jika repo privat, masuk ke GitHub lewat jendela login Git saat `git clone`.
 
 ## Cara main
 

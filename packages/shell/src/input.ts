@@ -1,5 +1,5 @@
 import {
-  MotionEngine, WebcamSource, syntheticObservation, poseTimeline,
+  MotionEngine, WebcamSource, syntheticObservation, poseTimeline, loadSharedColors, saveSharedColors,
   type DeepPartial, type EngineConfig, type Observation,
 } from '@games/motion-core';
 import { SHELL_CSS } from './ui';
@@ -47,6 +47,9 @@ export class MotionInput {
   constructor(private opts: MotionInputOptions) {
     this.engine = new MotionEngine(opts.engine);
     try { const p = localStorage.getItem(opts.profileKey); if (p) this.engine.importProfile(JSON.parse(p)); } catch { /* abaikan */ }
+    // warna penanda dibagi antar game (kalibrasi sekali di game/lab mana pun); menimpa warna per-game yang lebih lama
+    const sc = loadSharedColors();
+    if (sc) this.engine.setConfig({ tracker: { tip: sc.tip, handle: sc.handle, hueTolerance: sc.hueTolerance } });
 
     if (!document.getElementById('mi-style')) {
       const st = document.createElement('style'); st.id = 'mi-style'; st.textContent = SHELL_CSS; document.head.appendChild(st);
@@ -81,7 +84,11 @@ export class MotionInput {
     document.addEventListener('pointerleave', () => { this.pointer.inside = false; });
   }
 
-  private save() { try { localStorage.setItem(this.opts.profileKey, JSON.stringify(this.engine.exportProfile())); } catch { /* abaikan */ } }
+  private save() {
+    try { localStorage.setItem(this.opts.profileKey, JSON.stringify(this.engine.exportProfile())); } catch { /* abaikan */ }
+    const t = this.engine.cfg.tracker;
+    saveSharedColors({ version: 1, tip: { ...t.tip }, handle: { ...t.handle }, hueTolerance: t.hueTolerance });
+  }
   private calibrate() { this.engine.calibrate(); this.save(); this.opts.onNotice?.('KALIBRASI', 'panjang & kedalaman direset'); }
   private setPick(m: 'tip' | 'handle' | null) {
     this.pick = m;

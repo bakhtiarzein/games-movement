@@ -1,11 +1,18 @@
-import { MotionEngine, WebcamSource, type GestureEvent, type PoseSample } from '@games/motion-core';
+import { MotionEngine, WebcamSource, loadSharedColors, saveSharedColors, type GestureEvent, type PoseSample } from '@games/motion-core';
 
 /** Lab diagnosis: kalibrasi warna, lihat apa yang "dilihat" tracker, dan uji deteksi gerakan. Memakai engine yang sama dengan game. */
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const KEY = 'motionlab-profile';
 const engine = new MotionEngine();
 try { const p = localStorage.getItem(KEY); if (p) engine.importProfile(JSON.parse(p)); } catch { /* abaikan */ }
-const save = () => { try { localStorage.setItem(KEY, JSON.stringify(engine.exportProfile())); } catch { /* abaikan */ } };
+// warna hasil kalibrasi di sini dipakai semua game (dan sebaliknya)
+const shared = loadSharedColors();
+if (shared) engine.setConfig({ tracker: { tip: shared.tip, handle: shared.handle, hueTolerance: shared.hueTolerance } });
+const save = () => {
+  try { localStorage.setItem(KEY, JSON.stringify(engine.exportProfile())); } catch { /* abaikan */ }
+  const t = engine.cfg.tracker;
+  saveSharedColors({ version: 1, tip: { ...t.tip }, handle: { ...t.handle }, hueTolerance: t.hueTolerance });
+};
 
 const view = $<HTMLCanvasElement>('view'), vctx = view.getContext('2d')!;
 const mview = $<HTMLCanvasElement>('maskview'), mctx = mview.getContext('2d')!;

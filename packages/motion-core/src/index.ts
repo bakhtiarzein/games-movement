@@ -10,3 +10,4 @@ export { OneEuro } from './pose/oneEuro';
 export { clamp, quatFromYTo } from './pose/math';
 export { WebcamSource, type WebcamOptions } from './source/webcam';
 export { syntheticObservation, poseTimeline, type StickPose } from './source/synthetic';
+export { SHARED_COLORS_KEY, loadSharedColors, saveSharedColors, parseSharedColors, type SharedColors } from './storage';

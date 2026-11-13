@@ -7,6 +7,7 @@ Satu engine pembaca gerakan dipakai bersama oleh semua game.
 packages/motion-core   engine pembaca gerakan (TypeScript murni, tanpa Three.js)
 packages/game-kit      helper tumbukan/skor yang netral terhadap game
 packages/shell         bagian browser bersama: input webcam/mouse + kalibrasi, bloom, partikel, audio
+apps/index.html        halaman depan dengan tombol ke semua game (apps/vite.config.ts = satu server untuk semuanya)
 apps/sword             "Neon Blade"  — tebas orb (tebasan, tusukan)
 apps/tennis            "Neon Match"  — reli melawan lawan AI (arah, kecepatan, lob)
 apps/golf              "Neon Golf"   — 3 lubang (tempo, bidang ayun, kemiringan stik, putting)
@@ -16,7 +17,7 @@ apps/lab               alat kalibrasi dan diagnosis tracker
 ## Menjalankan di komputer lokal (Windows / Laragon / macOS / Linux)
 
 Yang dibutuhkan: **Git** dan **Node.js ≥ 22.12** (disarankan 22 LTS; cek dengan `node -v`).
-Game saja (`npm run dev:*`) cukup Node ≥ 20.19, tetapi `npm test` (vitest 5) butuh ≥ 22.12.
+Game saja (`npm run dev`) cukup Node ≥ 20.19, tetapi `npm test` (vitest 5) butuh ≥ 22.12.
 Tidak perlu Apache, PHP, atau MySQL: Vite punya server dev sendiri. Laragon boleh dipakai sebagai folder
 dan terminalnya, tetapi tidak wajib. Folder bebas, tidak harus di `www`.
 
@@ -24,30 +25,46 @@ dan terminalnya, tetapi tidak wajib. Folder bebas, tidak harus di `www`.
 git clone https://github.com/bakhtiarzein/games-movement.git
 cd games-movement
 npm install
-npm run dev:lab      # mulai dari sini: pastikan warna ujung/gagang terbaca di kamera (http://localhost:5174)
-npm run dev:golf     # http://localhost:5176
+npm run dev
 ```
 
-Buka alamat yang tercetak di terminal lalu izinkan akses kamera. Perintah lain:
+`npm run dev` membuka **halaman depan (http://localhost:5173)** dengan tombol untuk setiap game:
+
+| Tombol | Alamat | Isi |
+|---|---|---|
+| Neon Blade | `/sword/` | tebas orb |
+| Neon Match | `/tennis/` | reli tenis melawan AI |
+| Neon Golf | `/golf/` | 3 lubang golf |
+| Motion Lab | `/lab/` | cek kamera dan kalibrasi warna (mulai dari sini) |
+
+Di dalam tiap game ada tombol **← Semua game** untuk kembali. Warna ujung/gagang tongkat cukup dikalibrasi
+**sekali** (mis. di Lab): disimpan di browser dan dipakai semua game.
+
+Perintah lain:
 
 ```bash
-npm run dev:sword    # http://localhost:5173
-npm run dev:tennis   # http://localhost:5175
+npm run build        # situs statis lengkap di folder dist/
+npm run preview      # coba hasil build di http://localhost:4173
 npm test             # tes engine, tenis, golf, game-kit
 npm run typecheck
-npm run build
 ```
+
+Untuk mengembangkan satu game saja (server terpisah): `npm run dev:sword` (5177), `dev:tennis` (5175),
+`dev:golf` (5176), `dev:lab` (5174).
+
+Isi `dist/` bisa diunggah ke hosting statis mana pun (Netlify, GitHub Pages, Vercel, ...). Karena HTTPS,
+kamera langsung bisa dipakai dari alamat publik tanpa memasang Node.
 
 Catatan penting:
 
 - **Kamera hanya diizinkan di `http://localhost` (atau HTTPS).** Jangan membukanya lewat virtual host Laragon
   `*.test` yang berbasis HTTP atau lewat alamat IP jaringan (mis. `http://192.168.x.x`): browser akan memblokir kamera.
   Mode demo (mouse/sentuh) tetap jalan di alamat mana pun.
-- Ingin membuka dari HP di jaringan yang sama (hanya mode demo sentuh): jalankan `npm run dev:golf -- --host`.
+- Ingin membuka dari HP di jaringan yang sama (hanya mode demo sentuh): `npm run dev -- --host`.
 - Tutup aplikasi lain yang sedang memakai webcam (Zoom, Teams, OBS) agar kamera bisa dibuka.
 - Jika port bentrok, Vite memakai port berikutnya; lihat alamat yang dicetak di terminal.
 - Jika repo privat, masuk ke GitHub lewat jendela login Git saat `git clone`.
-- Perintah selalu diawali `npm` (mis. `npm run dev:lab`, bukan `run dev:lab`).
+- Perintah selalu diawali `npm` (mis. `npm run dev`, bukan `run dev`).
 - Peringatan `tarball data ... seems to be corrupted. Trying again.` saat `npm install` biasanya akibat jaringan/antivirus;
   npm mengunduh ulang otomatis. Bila berakhir dengan galat `EINTEGRITY`, jalankan `npm cache clean --force` lalu ulangi.
 - Peringatan `install scripts blocked ... esbuild` aman diabaikan: esbuild tetap berfungsi tanpa skrip postinstall-nya.

@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Game 3D yang dikendalikan tongkat di depan webcam: pedang, tenis, dan golf.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='26' fill='%2307091a' stroke='%232fe3ff' stroke-width='6'/%3E%3Ccircle cx='32' cy='32' r='10' fill='%23ff3fa4'/%3E%3C/svg%3E">
+<title>Neon Arcade</title>
+<style>
+:root{
+  --bg:#070914; --text:#eaf0ff; --dim:#93a0c4; --panel:rgba(16,21,46,.74); --line:rgba(130,160,255,.22);
+  --ok:#46e07a;
+}
+*{box-sizing:border-box}
+html{color-scheme:dark}
+[hidden]{display:none!important}
+body{
+  margin:0; min-height:100vh; color:var(--text);
+  font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  background:
+    radial-gradient(900px 520px at 12% -8%, rgba(255,63,164,.26), transparent 62%),
+    radial-gradient(900px 560px at 92% -4%, rgba(47,227,255,.22), transparent 62%),
+    radial-gradient(760px 520px at 50% 112%, rgba(143,91,255,.22), transparent 62%),
+    var(--bg);
+}
+.wrap{max-width:1040px;margin:0 auto;padding:max(36px,env(safe-area-inset-top)) 20px 56px}
+
+header{text-align:center;margin-bottom:26px}
+h1{
+  margin:0;font-size:clamp(40px,8vw,76px);font-weight:900;letter-spacing:.08em;line-height:1.05;
+  background:linear-gradient(90deg,#2fe3ff,#8f5bff 55%,#ff3fa4);-webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 0 22px rgba(143,91,255,.5));
+}
+.tag{margin:10px auto 0;max-width:34em;color:var(--dim)}
+
+.steps{
+  list-style:none;margin:0 0 22px;padding:0;display:flex;flex-wrap:wrap;gap:10px 22px;justify-content:center;
+  color:var(--dim);font-size:14px;counter-reset:s;
+}
+.steps li{display:flex;align-items:center;gap:8px;counter-increment:s}
+.steps li::before{
+  content:counter(s);display:grid;place-items:center;width:24px;height:24px;border-radius:50%;
+  border:1px solid var(--line);color:var(--text);font-size:12px;font-weight:700;background:rgba(255,255,255,.04);
+}
+.steps b{color:var(--text);font-weight:600}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:16px}
+
+a.card{
+  --cr:47,227,255; --c2r:255,63,164;
+  position:relative;display:flex;flex-direction:column;gap:12px;padding:22px 22px 20px;border-radius:18px;
+  background:var(--panel);border:1px solid var(--line);color:inherit;text-decoration:none;overflow:hidden;
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease;
+}
+a.card::before{
+  content:"";position:absolute;left:0;right:0;top:0;height:3px;
+  background:linear-gradient(90deg,rgba(var(--cr),.95),rgba(var(--c2r),.95));
+}
+a.card:hover{transform:translateY(-3px);border-color:rgba(var(--cr),.7);box-shadow:0 14px 44px -14px rgba(var(--cr),.6)}
+a.card:focus-visible{outline:3px solid rgba(var(--cr),.9);outline-offset:3px}
+a.card:active{transform:translateY(-1px)}
+
+.ico{
+  width:62px;height:62px;border-radius:16px;display:grid;place-items:center;color:rgb(var(--cr));
+  background:rgba(var(--cr),.12);border:1px solid rgba(var(--cr),.35);
+}
+.ico svg{width:42px;height:42px}
+h2{margin:2px 0 0;font-size:22px;letter-spacing:.04em}
+.desc{margin:0;color:var(--dim);font-size:15px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none}
+.chips li{font-size:12px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--dim);background:rgba(255,255,255,.03)}
+
+.cta{
+  margin-top:auto;display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 16px;border-radius:12px;
+  font-weight:800;letter-spacing:.04em;color:#06101f;
+  background:linear-gradient(90deg,rgba(var(--cr),1),rgba(var(--c2r),1));
+}
+.cta svg{width:16px;height:16px}
+
+/* Warna per game (selektor lebih spesifik dari a.card agar menimpa warna bawaan) */
+a.card.sword  {--cr:47,227,255;  --c2r:255,63,164}
+a.card.tennis {--cr:198,255,58;  --c2r:47,227,255}
+a.card.golf   {--cr:255,194,77;  --c2r:70,224,122}
+a.card.lab    {--cr:143,91,255;  --c2r:47,227,255}
+
+/* Kartu Lab: melebar, tombol di kanan */
+a.lab{grid-column:1/-1;flex-direction:row;align-items:center;gap:20px;padding:18px 22px}
+a.lab .body{display:flex;flex-direction:column;gap:6px;flex:1;min-width:0}
+a.lab .cta{margin-top:0;min-width:190px}
+.pill{
+  display:inline-flex;align-items:center;gap:6px;width:max-content;font-size:11px;font-weight:800;letter-spacing:.12em;
+  padding:3px 10px;border-radius:999px;color:#06101f;background:rgb(var(--cr));
+}
+.ok{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--ok);font-weight:600}
+@media(max-width:640px){
+  a.lab{flex-direction:column;align-items:stretch}
+  a.lab .cta{min-width:0}
+}
+
+footer{margin-top:30px;color:var(--dim);font-size:13.5px;line-height:1.6;text-align:center}
+footer b{color:var(--text);font-weight:600}
+footer p{margin:6px auto;max-width:46em}
+
+@media(prefers-reduced-motion:reduce){
+  a.card{transition:none} a.card:hover,a.card:active{transform:none}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>NEON ARCADE</h1>
+    <p class="tag">Game 3D yang dikendalikan <b>tongkat di depan webcam</b>. Ayunkan, tebas, dan pukul.</p>
+  </header>
+
+  <ol class="steps" aria-label="Langkah memulai">
+    <li><span>Siapkan tongkat: <b>ujung hijau</b>, <b>gagang biru</b></span></li>
+    <li><span>Cek kamera di <b>Lab</b> (sekali saja)</span></li>
+    <li><span>Pilih game</span></li>
+  </ol>
+
+  <main class="grid">
+    <a class="card sword" href="./sword/">
+      <span class="ico" aria-hidden="true">
+        <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <g transform="translate(24 24) rotate(45) scale(1.18) translate(-24 -24)">
+            <path d="M24 3 L28 8 V28 H20 V8 Z"/><path d="M14 28 H34 V31 H14 Z"/><path d="M22 31 V40 H26 V31"/><circle cx="24" cy="43" r="2.4"/>
+          </g>
+        </svg>
+      </span>
+      <h2>Neon Blade</h2>
+      <p class="desc">Belah orb yang beterbangan dengan pedang neon. Hindari bom merah.</p>
+      <ul class="chips"><li>Tebasan</li><li>Tusukan ke kamera</li><li>Kombo</li></ul>
+      <span class="cta">Main <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4 2l10 6-10 6z"/></svg></span>
+    </a>
+
+    <a class="card tennis" href="./tennis/">
+      <span class="ico" aria-hidden="true">
+        <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <g transform="translate(24 24) rotate(35) scale(1.08) translate(-24 -24)">
+            <ellipse cx="24" cy="16" rx="10" ry="13"/><path d="M24 3 V29 M14 16 H34 M16.5 8.5 H31.5 M16.5 23.5 H31.5"/>
+            <path d="M20 28 L24 33 L28 28"/><path d="M22 33 V45 H26 V33"/>
+          </g>
+        </svg>
+      </span>
+      <h2>Neon Match</h2>
+      <p class="desc">Reli melawan lawan AI. Arah, kecepatan, dan lob ditentukan ayunanmu.</p>
+      <ul class="chips"><li>Arah &amp; kecepatan</li><li>Lob</li><li>Level naik</li></ul>
+      <span class="cta">Main <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4 2l10 6-10 6z"/></svg></span>
+    </a>
+
+    <a class="card golf" href="./golf/">
+      <span class="ico" aria-hidden="true">
+        <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <g transform="translate(24 24) scale(1.12) translate(-24 -24)"><path d="M30 5 V34"/><path d="M30 5 L42 10 L30 15 Z"/><path d="M4 43 Q24 32 44 43"/><circle cx="15" cy="36" r="4"/></g>
+        </svg>
+      </span>
+      <h2>Neon Golf</h2>
+      <p class="desc">3 lubang. Tempo, bidang ayun, dan kemiringan stik menentukan pukulanmu.</p>
+      <ul class="chips"><li>Tempo &amp; bidang ayun</li><li>Putting</li><li>Angin &amp; air</li></ul>
+      <span class="cta">Main <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4 2l10 6-10 6z"/></svg></span>
+    </a>
+
+    <a class="card lab" href="./lab/">
+      <span class="ico" aria-hidden="true">
+        <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="5" y="14" width="38" height="25" rx="4"/><path d="M16 14 L19 8 H29 L32 14"/><circle cx="24" cy="26.5" r="7"/><circle cx="24" cy="26.5" r="2.2"/>
+        </svg>
+      </span>
+      <span class="body">
+        <span class="pill">MULAI DI SINI</span>
+        <h2>Motion Lab</h2>
+        <p class="desc">Cek apakah kamera melihat ujung hijau dan gagang biru, kalibrasi warna, dan uji deteksi ayunan.</p>
+        <span class="ok" id="calibrated" hidden>✓ Warna tongkat sudah dikalibrasi di browser ini</span>
+      </span>
+      <span class="cta">Buka Lab <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4 2l10 6-10 6z"/></svg></span>
+    </a>
+  </main>
+
+  <footer>
+    <p><b>Belum punya webcam atau tongkat?</b> Setiap game punya <b>mode demo (mouse/sentuh)</b>.</p>
+    <p>Kamera hanya bisa dipakai di <b>http://localhost</b> atau HTTPS. Pakai cahaya terang agar warna terbaca.</p>
+  </footer>
+</div>
+
+<script>
+  // tandai bila warna sudah pernah dikalibrasi (disimpan bersama oleh semua game)
+  try { if (localStorage.getItem('games-shared-colors')) document.getElementById('calibrated').hidden = false; } catch (e) { /* penyimpanan diblokir */ }
+</script>
+</body>
+</html>

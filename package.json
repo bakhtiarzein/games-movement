@@ -7,11 +7,13 @@
     "apps/*"
   ],
   "scripts": {
+    "dev": "vite --config apps/vite.config.ts --open",
+    "build": "vite build --config apps/vite.config.ts",
+    "preview": "vite preview --config apps/vite.config.ts",
     "dev:sword": "npm -w @games/sword run dev",
     "dev:tennis": "npm -w @games/tennis run dev",
     "dev:golf": "npm -w @games/golf run dev",
     "dev:lab": "npm -w @games/lab run dev",
-    "build": "npm -w @games/sword run build && npm -w @games/tennis run build && npm -w @games/golf run build && npm -w @games/lab run build",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

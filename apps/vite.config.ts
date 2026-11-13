@@ -34,8 +34,10 @@ export default defineConfig({
   base: './',               // aman untuk hosting di sub-folder (mis. GitHub Pages)
   appType: 'mpa',           // alamat yang tidak ada = 404 (bukan jatuh ke halaman depan)
   plugins: [trailingSlash()],
-  server: { port: 5173 },
-  preview: { port: 4173 },
+  // Port sengaja tidak lazim: hampir semua proyek Vite lain memakai 5173/4173, dan origin yang sama bisa
+  // menyajikan service worker/cache aplikasi lain.
+  server: { port: 5180 },
+  preview: { port: 4180 },
   build: {
     outDir: resolve(root, '../dist'),
     emptyOutDir: true,

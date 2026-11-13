@@ -1,2 +1,2 @@
 import { defineConfig } from 'vite';
-export default defineConfig({ server: { port: 5176 }, build: { target: 'es2022', chunkSizeWarningLimit: 900 } });
+export default defineConfig({ server: { port: 5183 }, build: { target: 'es2022', chunkSizeWarningLimit: 900 } });

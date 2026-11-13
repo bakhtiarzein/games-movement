@@ -28,7 +28,7 @@ npm install
 npm run dev
 ```
 
-`npm run dev` membuka **halaman depan (http://localhost:5173)** dengan tombol untuk setiap game:
+`npm run dev` membuka **halaman depan (http://localhost:5180)** dengan tombol untuk setiap game:
 
 | Tombol | Alamat | Isi |
 |---|---|---|
@@ -44,13 +44,13 @@ Perintah lain:
 
 ```bash
 npm run build        # situs statis lengkap di folder dist/
-npm run preview      # coba hasil build di http://localhost:4173
+npm run preview      # coba hasil build di http://localhost:4180
 npm test             # tes engine, tenis, golf, game-kit
 npm run typecheck
 ```
 
-Untuk mengembangkan satu game saja (server terpisah): `npm run dev:sword` (5177), `dev:tennis` (5175),
-`dev:golf` (5176), `dev:lab` (5174).
+Untuk mengembangkan satu game saja (server terpisah): `npm run dev:sword` (5181), `dev:tennis` (5182),
+`dev:golf` (5183), `dev:lab` (5184).
 
 Isi `dist/` bisa diunggah ke hosting statis mana pun (Netlify, GitHub Pages, Vercel, ...). Karena HTTPS,
 kamera langsung bisa dipakai dari alamat publik tanpa memasang Node.
@@ -62,7 +62,12 @@ Catatan penting:
   Mode demo (mouse/sentuh) tetap jalan di alamat mana pun.
 - Ingin membuka dari HP di jaringan yang sama (hanya mode demo sentuh): `npm run dev -- --host`.
 - Tutup aplikasi lain yang sedang memakai webcam (Zoom, Teams, OBS) agar kamera bisa dibuka.
-- Jika port bentrok, Vite memakai port berikutnya; lihat alamat yang dicetak di terminal.
+- **Yang terbuka malah aplikasi lain** (mis. proyek Vite Anda yang lain)? Port dibuat tidak lazim (5180) justru agar
+  tidak bentrok dengan proyek lain yang hampir semua memakai 5173. Jika masih terjadi: (1) baca baris `Local:` di
+  terminal, itulah alamat yang benar (bila port terpakai, Vite pindah ke port berikutnya dan membuka alamat itu);
+  (2) peramban bisa menyimpan *service worker*/cache proyek lain untuk alamat yang sama: buka jendela samaran
+  (incognito) atau di DevTools (F12) → Application → Service workers → Unregister, lalu *Clear site data*;
+  (3) cari proses yang memakai port: `Get-NetTCPConnection -LocalPort 5180` (PowerShell) lalu hentikan prosesnya.
 - Jika repo privat, masuk ke GitHub lewat jendela login Git saat `git clone`.
 - Perintah selalu diawali `npm` (mis. `npm run dev`, bukan `run dev`).
 - Peringatan `tarball data ... seems to be corrupted. Trying again.` saat `npm install` biasanya akibat jaringan/antivirus;

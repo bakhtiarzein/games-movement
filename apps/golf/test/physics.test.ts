@@ -96,3 +96,28 @@ describe('putting', () => {
     expect(hard.holed).toBe(false);
   });
 });
+
+describe('lean deadband', () => {
+  it('ignores small tilts caused by blur/sampling and curves only beyond the dead zone', async () => {
+    const { effectiveLean, LEAN_DEADBAND } = await import('../src/physics');
+    expect(effectiveLean(5)).toBe(0); expect(effectiveLean(-LEAN_DEADBAND)).toBe(0);
+    expect(effectiveLean(16)).toBe(16 - LEAN_DEADBAND); expect(effectiveLean(-16)).toBe(-(16 - LEAN_DEADBAND));
+    const small = planFullShot(h2, { x: 0, z: 0 }, base({ leanDeg: -5 }), rng0), tilted = planFullShot(h2, { x: 0, z: 0 }, base({ leanDeg: -20 }), rng0);
+    expect(small.curve).toBe(0);
+    expect(tilted.curve).toBeLessThan(-20);
+  });
+});
+
+describe('suggestedPower', () => {
+  it('suggests a percentage of full power for full shots and a swing speed for putts', async () => {
+    const { suggestedPower } = await import('../src/physics');
+    const s = suggestedPower(IRON, 'fairway', 75);
+    expect(s.kind).toBe('pct'); expect(s.value).toBeCloseTo(50, 0);
+    const p = suggestedPower(PUTTER, 'green', 6);
+    expect(p.kind).toBe('lps'); expect(p.value).toBeGreaterThan(1.5); expect(p.value).toBeLessThan(4);
+    // putt yang disarankan memang masuk
+    const ball = { x: h1.pin.x, z: h1.pin.z + 6 };
+    const plan = planPutt(h1, ball, p.value, 1, 0, azimuthTo(ball, h1.pin), () => 0.5);
+    expect(plan.holed).toBe(true);
+  });
+});

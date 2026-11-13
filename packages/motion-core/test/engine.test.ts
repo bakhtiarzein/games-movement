@@ -130,7 +130,7 @@ describe('ColorTracker', () => {
   });
 });
 
-import { analyzeSwing, type SwingTrace } from '../src';
+import { analyzeSwing, syntheticObservation, type SwingTrace } from '../src';
 
 /** ayunan golf tampak depan: tongkat menggantung, backswing lambat ke kiri-atas, downswing cepat melewati dasar. */
 function golfSwing(opts: { back?: number; down?: number; pitchOut?: boolean } = {}) {
@@ -176,9 +176,72 @@ describe('TraceRecorder + analyzeSwing', () => {
     eng.on('trace', t => traces.push(t));
     for (const o of poseTimeline([
       { dur: 0.2, to: R0, mode: 'hold' },
-      { dur: 0.25, to: { ...R0, angleDeg: -150 }, mode: 'ease' },
-      { dur: 0.6, to: { ...R0, angleDeg: -150 }, mode: 'hold' },
+      { dur: 0.4, to: { ...R0, angleDeg: -120 }, mode: 'ease' },      // gerakan iseng pelan (di bawah ambang cepat), tidak pernah diam 350 ms
+      { dur: 0.6, to: { ...R0, angleDeg: -120 }, mode: 'hold' },
     ], R0)) eng.pushObservation(o);
     expect(traces).toHaveLength(0);
+  });
+});
+
+describe('swing analysis robustness', () => {
+  /** pemula: backswing cepat, downswing melambat ke arah bola. Titik kena harus tetap di downswing. */
+  it('picks the downswing as impact even when the backswing peaks higher', () => {
+    const base: StickPose = { hx: 0.5, hy: 0.3, angleDeg: 90 };
+    const eng = new MotionEngine(); const traces: SwingTrace[] = [];
+    eng.on('trace', t => traces.push(t));
+    for (const o of poseTimeline([
+      { dur: 1.0, to: base, mode: 'hold' },
+      { dur: 0.45, to: { ...base, angleDeg: 215 }, mode: 'ease' },   // backswing cepat
+      { dur: 0.1, to: { ...base, angleDeg: 215 }, mode: 'hold' },
+      { dur: 0.90, to: { ...base, angleDeg: 90 }, mode: 'in' },       // downswing lebih lambat dari backswing
+      { dur: 0.6, to: { ...base, angleDeg: 20 }, mode: 'out' },
+      { dur: 1.2, to: { ...base, angleDeg: 20 }, mode: 'hold' },
+    ], base, { fps: 60 })) eng.pushObservation(o);
+    expect(traces).toHaveLength(1);
+    const m = analyzeSwing(traces[0]);
+    expect(m.globalPeak).toBeGreaterThan(m.peakSpeed);             // puncak global ada di backswing
+    expect(m.direction).toBe(1);                                    // tetapi titik kena dibaca dari downswing (ke kanan)
+    expect(Math.abs(m.leanDeg)).toBeLessThan(25);
+    expect(m.peakIndex).toBeGreaterThan(m.topIndex);
+  });
+
+  it('a very fast swing is still recorded when the player never held still', () => {
+    const base: StickPose = { hx: 0.5, hy: 0.3, angleDeg: 90 };
+    const eng = new MotionEngine(); const traces: SwingTrace[] = [];
+    eng.on('trace', t => traces.push(t));
+    for (const o of poseTimeline([
+      { dur: 0.1, to: { ...base, angleDeg: 100 }, mode: 'lin' },      // selalu bergerak pelan, tidak pernah diam 350 ms
+      { dur: 0.3, to: { ...base, angleDeg: 90 }, mode: 'lin' },
+      { dur: 0.2, to: { ...base, angleDeg: -30 }, mode: 'in' },       // lalu ayunan sangat cepat
+      { dur: 0.3, to: { ...base, angleDeg: -60 }, mode: 'out' },
+      { dur: 1.0, to: { ...base, angleDeg: -60 }, mode: 'hold' },
+    ], { ...base, angleDeg: 85 }, { fps: 60 })) eng.pushObservation(o);
+    expect(traces.length).toBeGreaterThanOrEqual(1);
+    expect(traces[0].peakSpeed).toBeGreaterThan(4);
+  });
+});
+
+describe('impact lean is robust to frame phase', () => {
+  /** pose kontinu dari ayunan golf tampak depan; disampel dengan fase frame yang berbeda-beda */
+  const swingAt = (t: number): StickPose => {
+    const e = (f: number) => f * f * (3 - 2 * f);
+    const base = { hx: 0.5, hy: 0.3 };
+    if (t < 1.0) return { ...base, angleDeg: 90 };
+    if (t < 1.9) return { ...base, angleDeg: 90 + 125 * e((t - 1.0) / 0.9) };
+    if (t < 1.98) return { ...base, angleDeg: 215 };
+    if (t < 2.25) { const f = (t - 1.98) / 0.27; return { ...base, angleDeg: 215 - 125 * f * f }; }     // 'in'
+    if (t < 2.5) { const f = (t - 2.25) / 0.25; return { ...base, angleDeg: 90 - 120 * (1 - (1 - f) * (1 - f)) }; } // 'out'
+    return { ...base, angleDeg: -30 };
+  };
+  it('reports near-zero lean for a swing around a fixed pivot, whatever the sampling phase', () => {
+    for (const phase of [0, 0.25, 0.5, 0.75]) {
+      const eng = new MotionEngine(); const traces: SwingTrace[] = [];
+      eng.on('trace', t => traces.push(t));
+      const dt = 1000 / 30;
+      for (let k = 0; k < 140; k++) { const t = (k + phase) * dt; eng.pushObservation(syntheticObservation(t, swingAt(t / 1000))); }
+      expect(traces, `phase ${phase}`).toHaveLength(1);
+      const m = analyzeSwing(traces[0]);
+      expect(Math.abs(m.leanDeg), `phase ${phase}: lean ${m.leanDeg.toFixed(1)}`).toBeLessThan(9);
+    }
   });
 });

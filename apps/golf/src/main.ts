@@ -5,7 +5,7 @@ import { GolfStage } from './scene';
 import { HOLES, type Hole } from './holes';
 import {
   DRIVER, IRON, PUTTER, WEDGE, FULL_SWING_SPEED, azimuthTo, chooseClub, distTo, flightPos, planFullShot, planPutt,
-  surfaceAt, type Club, type Pt, type ShotPlan, type Surface,
+  suggestedPower, surfaceAt, type Club, type Pt, type ShotPlan, type Surface,
 } from './physics';
 import { Sfx } from './audio';
 
@@ -183,6 +183,8 @@ function renderHud() {
   $('club').textContent = G.club.name + (G.forcedClub ? ' (manual)' : '');
   const w = h.wind;
   $('wind').textContent = `angin ${w === 0 ? 'tenang' : (w > 0 ? '→ ' : '← ') + Math.abs(w) + ' m/s'}`;
+  const sp = suggestedPower(G.club, G.lie, d);
+  $('need').textContent = sp.kind === 'lps' ? `butuh ≈ ${sp.value.toFixed(1)} L/s` : `butuh ≈ ${Math.round(sp.value)}% kekuatan`;
   $('full').textContent = `penuh = ${fullSpeed.toFixed(0)} L/s`;
 }
 function showCard(m: ReturnType<typeof analyzeSwing>, power: number, plan: ShotPlan, putt: boolean) {
@@ -292,27 +294,25 @@ stage.moveCamera(new THREE.Vector3(0, 6, 16), new THREE.Vector3(0, 3, -60), 3, t
 requestAnimationFrame(frame);
 
 /* ---------- bantuan tes otomatis ---------- */
-/** Ayunan sintetis tampak depan (mode mouse). kind: 'full' | 'putt'. Hanya untuk tes. */
-function testSwing(kind: 'full' | 'putt' = 'full', lean = 0, scale = 1) {
+/**
+ * Ayunan sintetis tampak depan (mode mouse). `peak` = kecepatan puncak yang diinginkan (L/s);
+ * durasi downswing dikalibrasi dari pengukuran engine (dur x peak ~ 3.9 untuk ayunan penuh, ~2.05 untuk putt).
+ * Hanya untuk tes.
+ */
+function testSwing(kind: 'full' | 'putt' = 'full', lean = 0, peak = 9) {
   const base = { hx: ANCHOR.hx, hy: ANCHOR.hy, angleDeg: 90 };
-  const a = (v: number) => 90 + (v - 90) * 1;
-  const segs = kind === 'full'
-    ? [
-        { dur: 0.5, to: base, mode: 'hold' as const },
-        { dur: 0.9, to: { ...base, angleDeg: 215 }, mode: 'ease' as const },
-        { dur: 0.08, to: { ...base, angleDeg: 215 }, mode: 'hold' as const },
-        { dur: 0.26 / scale, to: { ...base, angleDeg: 90 + lean }, mode: 'in' as const },
-        { dur: 0.3 / scale, to: { ...base, angleDeg: -30 }, mode: 'out' as const },
-        { dur: 0.8, to: { ...base, angleDeg: -30 }, mode: 'hold' as const },
-      ]
-    : [
-        { dur: 0.5, to: base, mode: 'hold' as const },
-        { dur: 0.7, to: { ...base, angleDeg: a(150) }, mode: 'ease' as const },
-        { dur: 0.08, to: { ...base, angleDeg: a(150) }, mode: 'hold' as const },
-        { dur: 0.42 / scale, to: { ...base, angleDeg: 90 + lean }, mode: 'in' as const },
-        { dur: 0.5, to: { ...base, angleDeg: 62 }, mode: 'out' as const },
-        { dur: 0.8, to: { ...base, angleDeg: 62 }, mode: 'hold' as const },
-      ];
-  input.playScript(poseTimeline(segs, base, { fps: 60 }));
+  const full = kind === 'full';
+  // amplitudo backswing mengikuti kekuatan agar backswing tidak lebih cepat dari downswing (seperti ayunan nyata)
+  const A = Math.min(full ? 125 : 60, 20.6 * peak), Ar = (A * Math.PI) / 180;
+  const down = Math.max(0.1, (1.78 * Ar) / peak);
+  const follow = Math.max(full ? 0.3 : 0.5, down * (full ? 1.3 : 1.4));
+  input.playScript(poseTimeline([
+    { dur: 0.5, to: base, mode: 'hold' },
+    { dur: full ? 0.9 : 0.7, to: { ...base, angleDeg: 90 + A }, mode: 'ease' },
+    { dur: 0.08, to: { ...base, angleDeg: 90 + A }, mode: 'hold' },
+    { dur: down, to: { ...base, angleDeg: 90 + lean }, mode: 'in' },
+    { dur: follow, to: { ...base, angleDeg: 90 - A * 0.95 }, mode: 'out' },
+    { dur: 0.8, to: { ...base, angleDeg: 90 - A * 0.95 }, mode: 'hold' },
+  ], base, { fps: 60 }));
 }
 (window as unknown as { __game: unknown }).__game = { G, engine, input, stage, testSwing, HOLES, surfaceAt, holeNow };

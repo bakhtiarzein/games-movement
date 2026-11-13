@@ -29,6 +29,8 @@ export interface EngineConfig {
     stillMs: number;
     /** kecepatan awal gerakan (L/s) */
     startSpeed: number;
+    /** ayunan secepat ini langsung direkam walau pemain belum "siap" (diam) — jalur cadangan (L/s) */
+    fastStart: number;
     /** gerakan dianggap selesai bila kecepatan < endSpeed selama endMs */
     endSpeed: number;
     endMs: number;
@@ -60,7 +62,7 @@ export const defaultConfig = (): EngineConfig => ({
     minArea: 14,
   },
   pose: { stickLengthM: 0.6, worldWidthM: 1.6, depthGainM: 1.0, lostTimeoutMs: 180, refLengthDecay: 0.02 },
-  trace: { stillSpeed: 0.5, stillMs: 350, startSpeed: 0.9, endSpeed: 0.7, endMs: 350, maxMs: 3500, minPeak: 1.2 },
+  trace: { stillSpeed: 0.5, stillMs: 350, startSpeed: 0.9, fastStart: 4, endSpeed: 0.7, endMs: 350, maxMs: 3500, minPeak: 1.2 },
   gesture: {
     startThreshold: 3.5,
     endRatio: 0.4,

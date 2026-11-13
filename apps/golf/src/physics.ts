@@ -87,6 +87,13 @@ export interface ShotPlan {
   distance: number;
 }
 
+/** Kemiringan di bawah zona mati diabaikan: blur gerak dan derau penyampelan menggeser sudut beberapa derajat. */
+export const LEAN_DEADBAND = 6;
+export const effectiveLean = (leanDeg: number) => {
+  const m = Math.max(0, Math.abs(leanDeg) - LEAN_DEADBAND);
+  return m === 0 ? 0 : Math.sign(leanDeg) * m;
+};
+
 const gauss = (rng: () => number) => Math.sqrt(-2 * Math.log(Math.max(1e-9, rng()))) * Math.cos(2 * Math.PI * rng());
 
 /** Simulasi gulir di permukaan: kecepatan berkurang menurut jenis permukaan; berhenti di air/pohon/pasir; masuk cup bila pelan. */
@@ -121,8 +128,9 @@ export function planFullShot(h: Hole, ball: Pt, inp: ShotInput, rng: () => numbe
   const apex = (v * Math.sin(th)) ** 2 / (2 * G);
 
   const sigma = (1 - inp.quality) * 5 + over * 8;
-  const azimuthDeg = inp.aimDeg + gauss(rng) * sigma + inp.leanDeg * 0.12;
-  const curve = inp.leanDeg * 0.015 * carry;
+  const lean = effectiveLean(inp.leanDeg);
+  const azimuthDeg = inp.aimDeg + gauss(rng) * sigma + lean * 0.12;
+  const curve = lean * 0.015 * carry;
   const drift = inp.wind * T * 0.5;
   const F = dirVec(azimuthDeg), R = { x: F.z * -1, z: F.x };            // kanan = F diputar 90° searah jarum jam
   const lateral = curve + drift;
@@ -150,7 +158,7 @@ export function planFullShot(h: Hole, ball: Pt, inp: ShotInput, rng: () => numbe
 /** Rencana putt: kecepatan ayunan -> kecepatan gulir awal; arah ke lubang + galat kecil. */
 export function planPutt(h: Hole, ball: Pt, peakSpeed: number, quality: number, leanDeg: number, aimDeg: number, rng: () => number = Math.random): ShotPlan {
   const v0 = Math.min(11, Math.max(0.4, peakSpeed * 1.7));
-  const az = aimDeg + gauss(rng) * (1 - quality) * 2.2 + leanDeg * 0.05;
+  const az = aimDeg + gauss(rng) * (1 - quality) * 2.2 + effectiveLean(leanDeg) * 0.05;
   const d = dirVec(az);
   const r = simulateRoll(h, ball, d, v0);
   const penalty = r.surface === 'water';
@@ -171,6 +179,15 @@ export function flightPos(p: ShotPlan, t: number): { x: number; y: number; z: nu
     z: p.start.z + F.z * p.carry * s + R.z * lateral * s * s,
     y: v * t - 0.5 * G * t * t,
   };
+}
+
+/**
+ * Petunjuk kekuatan ayunan untuk mencapai lubang: ayunan penuh -> persen kekuatan (100 = penuh);
+ * putt -> kecepatan ayunan (L/s) agar bola tiba di lubang cukup pelan untuk jatuh.
+ */
+export function suggestedPower(club: Club, lie: Surface, d: number): { kind: 'pct' | 'lps'; value: number } {
+  if (club === PUTTER) return { kind: 'lps', value: Math.sqrt(2 * DECEL.green * (d + 0.4)) / 1.7 };
+  return { kind: 'pct', value: Math.min(130, (d / (club.max * CARRY_FACTOR[lie])) * 100) };
 }
 
 export const holeAt = (i: number) => HOLES[i];

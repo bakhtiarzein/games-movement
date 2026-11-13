@@ -2,11 +2,16 @@
   "name": "games-movement",
   "private": true,
   "type": "module",
-  "workspaces": ["packages/*", "apps/*"],
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
     "dev:sword": "npm -w @games/sword run dev",
+    "dev:tennis": "npm -w @games/tennis run dev",
+    "dev:golf": "npm -w @games/golf run dev",
     "dev:lab": "npm -w @games/lab run dev",
-    "build": "npm -w @games/sword run build && npm -w @games/lab run build",
+    "build": "npm -w @games/sword run build && npm -w @games/tennis run build && npm -w @games/golf run build && npm -w @games/lab run build",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

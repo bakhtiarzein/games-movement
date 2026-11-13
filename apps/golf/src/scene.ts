@@ -11,6 +11,7 @@ export class GolfStage {
   readonly post: PostFX;
   private holeGroup = new THREE.Group();
   private flag!: THREE.Mesh;
+  private beam: THREE.Mesh | null = null;
   private water: THREE.Mesh[] = [];
   private t = 0;
   private shake = 0;
@@ -29,7 +30,7 @@ export class GolfStage {
     this.camera.position.copy(this.want.pos);
     this.post = new PostFX(container, this.scene, this.camera, { exposure: 0.9, bloom: { strength: 0.4, radius: 0.5, threshold: 0.9 } });
     this.scene.background = new THREE.Color(0x9fb7d8);
-    this.scene.fog = new THREE.Fog(0xc9b8b0, 120, 1300);
+    this.scene.fog = new THREE.Fog(0xc9b8b0, 220, 1500);
     const pm = new THREE.PMREMGenerator(this.post.renderer);
     this.scene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture;
     this.scene.environmentIntensity = 0.3;
@@ -71,7 +72,11 @@ export class GolfStage {
     const p = this.camera.position;
     const jit = new THREE.Vector3((Math.random() - 0.5) * s, (Math.random() - 0.5) * s, 0);
     p.add(jit); this.camera.lookAt(this.look); p.sub(jit);
-    if (this.flag) { this.flag.rotation.y = Math.sin(this.t * 3) * 0.25; this.flag.scale.x = 1 + Math.sin(this.t * 5) * 0.06; }
+    if (this.flag) { this.flag.rotation.y = Math.sin(this.t * 3) * 0.25; this.flag.scale.set(1.8 * (1 + Math.sin(this.t * 5) * 0.06), 1.8, 1.8); }
+    if (this.beam) {   // suar memudar saat kamera dekat agar tidak menutupi layar
+      const dd = Math.hypot(this.camera.position.x - this.beam.position.x, this.camera.position.z - this.beam.position.z);
+      (this.beam.material as THREE.MeshBasicMaterial).opacity = Math.min(0.45, Math.max(0.05, (dd - 20) / 90));
+    }
     for (const w of this.water) (w.material as THREE.MeshStandardMaterial).opacity = 0.72 + Math.sin(this.t * 1.5 + w.position.x) * 0.06;
     // halo bola: ukuran mengikuti jarak agar bola tetap terlihat saat jauh
     const d = this.camera.position.distanceTo(this.ball.position);
@@ -131,21 +136,21 @@ export class GolfStage {
     const c = document.createElement('canvas'); c.width = Math.round(W * ppm); c.height = Math.round(L * ppm);
     const g = c.getContext('2d')!;
     const X = (x: number) => (x - b.xmin) * ppm, Z = (z: number) => (z - b.zmin) * ppm;
-    g.fillStyle = '#2f6b34'; g.fillRect(0, 0, c.width, c.height);
+    g.fillStyle = '#27602f'; g.fillRect(0, 0, c.width, c.height);
     // rumput kasar bertekstur
     for (let i = 0; i < 9000; i++) { g.fillStyle = Math.random() < 0.5 ? 'rgba(20,70,30,.18)' : 'rgba(80,140,60,.14)'; g.fillRect(Math.random() * c.width, Math.random() * c.height, 3 + Math.random() * 6, 2); }
     // fairway: jalur dengan garis potong
     g.lineCap = 'round'; g.lineJoin = 'round';
-    g.strokeStyle = '#4c9a3d'; g.lineWidth = h.fairway.width * ppm;
+    g.strokeStyle = '#5cab45'; g.lineWidth = h.fairway.width * ppm;
     g.beginPath(); h.fairway.pts.forEach((p, i) => (i ? g.lineTo(X(p.x), Z(p.z)) : g.moveTo(X(p.x), Z(p.z)))); g.stroke();
     g.save(); g.globalCompositeOperation = 'source-atop';
     g.restore();
-    for (let z = b.zmin; z < b.zmax; z += 10) { g.fillStyle = ((z / 10) | 0) % 2 ? 'rgba(255,255,255,.045)' : 'rgba(0,0,0,.045)'; g.fillRect(0, Z(z), c.width, 10 * ppm); }
+    for (let z = b.zmin; z < b.zmax; z += 10) { g.fillStyle = ((z / 10) | 0) % 2 ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.07)'; g.fillRect(0, Z(z), c.width, 10 * ppm); }
     // tee
     g.fillStyle = '#5fb04a'; g.fillRect(X(h.tee.x - 4), Z(h.tee.z - 4), 8 * ppm, 8 * ppm);
     // green dengan fringe
     g.fillStyle = '#3f8f3a'; g.beginPath(); g.arc(X(h.green.x), Z(h.green.z), (h.green.r + 2.2) * ppm, 0, 6.2832); g.fill();
-    g.fillStyle = '#6cc450'; g.beginPath(); g.arc(X(h.green.x), Z(h.green.z), h.green.r * ppm, 0, 6.2832); g.fill();
+    g.fillStyle = '#7ad45c'; g.beginPath(); g.arc(X(h.green.x), Z(h.green.z), h.green.r * ppm, 0, 6.2832); g.fill();
     for (let r = h.green.r; r > 1; r -= 2.2) { g.strokeStyle = 'rgba(255,255,255,.05)'; g.lineWidth = 1.1 * ppm; g.beginPath(); g.arc(X(h.green.x), Z(h.green.z), r * ppm, 0, 6.2832); g.stroke(); }
     // bunker
     for (const k of h.bunkers) {
@@ -160,7 +165,7 @@ export class GolfStage {
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(W, L), new THREE.MeshStandardMaterial({ map: tex, roughness: 1, metalness: 0 }));
     ground.rotation.x = -Math.PI / 2; ground.position.set((b.xmin + b.xmax) / 2, 0, (b.zmin + b.zmax) / 2);
     this.holeGroup.add(ground);
-    const outer = new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000), new THREE.MeshStandardMaterial({ color: 0x2a5e30, roughness: 1 }));
+    const outer = new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000), new THREE.MeshStandardMaterial({ color: 0x27602f, roughness: 1 }));
     outer.rotation.x = -Math.PI / 2; outer.position.y = -0.05; this.holeGroup.add(outer);
 
     for (const w of h.water) {
@@ -186,9 +191,9 @@ export class GolfStage {
     pole.position.set(h.pin.x, 1.8, h.pin.z); this.holeGroup.add(pole);
     const tri = new THREE.Shape(); tri.moveTo(0, 0); tri.lineTo(1.5, 0.35); tri.lineTo(0, 0.7); tri.closePath();
     this.flag = new THREE.Mesh(new THREE.ShapeGeometry(tri), new THREE.MeshBasicMaterial({ color: new THREE.Color(2, 0.5, 0.9), side: THREE.DoubleSide }));
-    this.flag.position.set(h.pin.x, 3.0, h.pin.z); this.holeGroup.add(this.flag);
-    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 60, 12, 1, true), new THREE.MeshBasicMaterial({ color: new THREE.Color(1.2, 0.35, 0.8), transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
-    beam.position.set(h.pin.x, 30, h.pin.z); this.holeGroup.add(beam);
+    this.flag.position.set(h.pin.x, 3.0, h.pin.z); this.flag.scale.setScalar(1.8); this.holeGroup.add(this.flag);
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 90, 12, 1, true), new THREE.MeshBasicMaterial({ color: new THREE.Color(1.2, 0.35, 0.8), transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    beam.position.set(h.pin.x, 45, h.pin.z); this.holeGroup.add(beam); this.beam = beam;
   }
 
   private buildSky() {

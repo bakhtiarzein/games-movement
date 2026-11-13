@@ -34,7 +34,7 @@ export class TraceRecorder {
         if (p.t - this.stillSince >= c.stillMs) this.armed = true;
       } else {
         this.stillSince = null;
-        if (this.armed && p.speed > c.startSpeed) {
+        if ((this.armed && p.speed > c.startSpeed) || p.speed > c.fastStart) {
           this.rec = this.ring.filter(r => p.t - r.t <= 150);
           this.slowSince = null; this.armed = false;
         }

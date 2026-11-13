@@ -15,7 +15,8 @@ apps/lab               alat kalibrasi dan diagnosis tracker
 
 ## Menjalankan di komputer lokal (Windows / Laragon / macOS / Linux)
 
-Yang dibutuhkan: **Git** dan **Node.js ≥ 20.19** (disarankan 22 LTS; cek dengan `node -v`).
+Yang dibutuhkan: **Git** dan **Node.js ≥ 22.12** (disarankan 22 LTS; cek dengan `node -v`).
+Game saja (`npm run dev:*`) cukup Node ≥ 20.19, tetapi `npm test` (vitest 5) butuh ≥ 22.12.
 Tidak perlu Apache, PHP, atau MySQL: Vite punya server dev sendiri. Laragon boleh dipakai sebagai folder
 dan terminalnya, tetapi tidak wajib. Folder bebas, tidak harus di `www`.
 
@@ -46,6 +47,11 @@ Catatan penting:
 - Tutup aplikasi lain yang sedang memakai webcam (Zoom, Teams, OBS) agar kamera bisa dibuka.
 - Jika port bentrok, Vite memakai port berikutnya; lihat alamat yang dicetak di terminal.
 - Jika repo privat, masuk ke GitHub lewat jendela login Git saat `git clone`.
+- Perintah selalu diawali `npm` (mis. `npm run dev:lab`, bukan `run dev:lab`).
+- Peringatan `tarball data ... seems to be corrupted. Trying again.` saat `npm install` biasanya akibat jaringan/antivirus;
+  npm mengunduh ulang otomatis. Bila berakhir dengan galat `EINTEGRITY`, jalankan `npm cache clean --force` lalu ulangi.
+- Peringatan `install scripts blocked ... esbuild` aman diabaikan: esbuild tetap berfungsi tanpa skrip postinstall-nya.
+- Tidak perlu menjalankan `npm audit fix --force`; versi yang di-commit sudah bebas kerentanan (`npm audit` = 0).
 
 ## Cara main
 

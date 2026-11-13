@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { FLOOR_Y, Z_BASE } from './stage';
-import type { Particles } from './fx';
+import type { Particles } from '@games/shell';
 
 export type TargetKind = 'orb' | 'bomb';
 

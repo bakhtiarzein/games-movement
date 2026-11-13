@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Neon Match</title>
+<style>
+:root{--bg:#070914;--text:#eaf0ff;--dim:#8b97b8;--pink:#ff3fa4;--cyan:#2fe3ff;--gold:#ffc24d;--panel:rgba(14,18,40,.72);--line:rgba(120,150,255,.22)}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;overflow:hidden;-webkit-user-select:none;user-select:none}
+#stage{position:fixed;inset:0}
+#stage canvas{display:block;width:100%;height:100%}
+.hud{position:fixed;pointer-events:none;inset:0;padding:max(16px,env(safe-area-inset-top)) 18px 18px}
+#score{font-size:clamp(32px,5vw,56px);font-weight:800;letter-spacing:.02em;line-height:1;text-shadow:0 0 24px rgba(47,227,255,.55);font-variant-numeric:tabular-nums}
+#scoreLabel{font-size:11px;letter-spacing:.2em;color:var(--dim);margin-bottom:4px}
+#combo{margin-top:6px;font-weight:700;color:var(--gold);font-size:clamp(16px,2.2vw,22px);min-height:1.4em;text-shadow:0 0 14px rgba(255,194,77,.6)}
+#lives{position:absolute;right:18px;top:max(16px,env(safe-area-inset-top));font-size:clamp(22px,3vw,32px);letter-spacing:.15em;color:var(--pink);text-shadow:0 0 14px rgba(255,63,164,.7)}
+#lives i{font-style:normal;opacity:.25;filter:grayscale(1)}
+#lives i.on{opacity:1;filter:none}
+#banner{position:absolute;left:0;right:0;top:34%;text-align:center;font-weight:900;font-size:clamp(34px,7vw,86px);letter-spacing:.06em;opacity:0;text-shadow:0 0 30px currentColor;pointer-events:none}
+#banner small{display:block;font-size:clamp(13px,1.6vw,18px);font-weight:600;letter-spacing:.14em;color:var(--dim);margin-top:2px}
+#banner.show{animation:pop .75s ease-out forwards}
+@keyframes pop{0%{opacity:0;transform:scale(.7)}12%{opacity:1;transform:scale(1.06)}70%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.04)}}
+.pop{position:fixed;font-weight:800;color:#fff;text-shadow:0 0 12px var(--c,#2fe3ff);pointer-events:none;animation:rise .9s ease-out forwards;font-size:22px}
+@keyframes rise{from{opacity:1;transform:translate(-50%,0) scale(.8)}to{opacity:0;transform:translate(-50%,-60px) scale(1.2)}}
+#flash{position:fixed;inset:0;background:radial-gradient(ellipse at center,transparent 40%,rgba(255,40,40,.55));opacity:0;pointer-events:none;transition:opacity .5s}
+#flash.on{opacity:1;transition:none}
+.overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:20px;z-index:10;background:radial-gradient(ellipse at 50% 40%,rgba(30,14,60,.55),rgba(5,6,16,.82))}
+.overlay.hidden{display:none}
+.card{max-width:520px;width:100%;text-align:center}
+h1{margin:0;font-size:clamp(40px,8vw,76px);font-weight:900;letter-spacing:.08em;background:linear-gradient(90deg,var(--cyan),#8f5bff 55%,var(--pink));-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 22px rgba(143,91,255,.55))}
+.tag{color:var(--dim);margin:6px 0 22px}
+.btn{display:block;width:100%;margin:10px 0;padding:15px 18px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--text);font:600 16px inherit;cursor:pointer;backdrop-filter:blur(8px);transition:transform .12s,border-color .12s,background .12s}
+.btn:hover{transform:translateY(-1px);border-color:rgba(47,227,255,.6);background:rgba(30,40,90,.7)}
+.btn.primary{background:linear-gradient(90deg,#1d6cff,#8f2bff);border-color:transparent}
+.btn.on{outline:2px solid var(--gold)}
+.btn small{display:block;font-weight:400;color:var(--dim);font-size:12.5px;margin-top:2px}
+.how{margin:18px 0 0;color:var(--dim);font-size:13px;text-align:left;line-height:1.55}
+.how b{color:var(--text)}
+#err{color:#ff8a8a;margin-top:10px;font-size:13px;min-height:1.2em}
+.final{font-size:clamp(40px,8vw,72px);font-weight:900;margin:6px 0}
+</style>
+</head>
+<body>
+<div id="stage"></div>
+
+<div class="hud">
+  <div id="scoreLabel">SKOR</div><div id="score">0</div><div id="combo"></div><div id="lvl" style="color:var(--dim);font-size:12px;letter-spacing:.18em;margin-top:2px"></div>
+  <div id="lives"></div>
+  <div id="banner"></div>
+</div>
+<div id="flash"></div>
+
+<div id="menu" class="overlay">
+  <div class="card">
+    <h1>NEON MATCH</h1>
+    <div class="tag">Ayunkan tongkatmu seperti raket — kembalikan bola, buat lawan kewalahan.</div>
+    <button class="btn primary" id="bCam">Main dengan webcam<small>pakai tongkat berujung hijau &amp; bergagang biru</small></button>
+    <button class="btn" id="bMouse">Mode demo (mouse / sentuh)<small>tanpa kamera · gerakkan mouse ke bola lalu sapukan</small></button>
+    <div id="err"></div>
+    <div class="how"><b>Cara main:</b> gerakkan raket ke bola, lalu <b>ayunkan</b> saat bola datang. <b>Arah ayunan</b> menentukan ke mana bola pergi, <b>kecepatan</b> menentukan seberapa dalam, ayunan <b>naik ke atas</b> = lob. Bola yang keluar, nyangkut net, atau terlewat mengurangi nyawa. <b>C</b> = kalibrasi ulang.</div>
+  </div>
+</div>
+
+<div id="over" class="overlay hidden">
+  <div class="card">
+    <h1 style="font-size:clamp(34px,6vw,56px)">GAME OVER</h1>
+    <div class="final" id="finalScore">0</div>
+    <div class="tag" id="bestLine"></div>
+    <button class="btn primary" id="bAgain">Main lagi</button>
+    <button class="btn" id="bMenu">Menu</button>
+  </div>
+</div>
+
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>

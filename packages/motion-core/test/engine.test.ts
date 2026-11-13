@@ -129,3 +129,56 @@ describe('ColorTracker', () => {
     expect(p!.h).toBeLessThan(15);
   });
 });
+
+import { analyzeSwing, type SwingTrace } from '../src';
+
+/** ayunan golf tampak depan: tongkat menggantung, backswing lambat ke kiri-atas, downswing cepat melewati dasar. */
+function golfSwing(opts: { back?: number; down?: number; pitchOut?: boolean } = {}) {
+  const base: StickPose = { hx: 0.5, hy: 0.3, angleDeg: 90 };
+  const back = opts.back ?? 0.9, down = opts.down ?? 0.3;
+  const eng = new MotionEngine();
+  const traces: SwingTrace[] = [];
+  eng.on('trace', t => traces.push(t));
+  const c = opts.pitchOut ? 0.6 : 1;
+  for (const o of poseTimeline([
+    { dur: 1.0, to: base, mode: 'hold' },
+    { dur: back, to: { ...base, angleDeg: 215, c }, mode: 'ease' },   // backswing: ke kiri-atas
+    { dur: 0.08, to: { ...base, angleDeg: 215, c }, mode: 'hold' },
+    { dur: down * 0.9, to: { ...base, angleDeg: 90, c }, mode: 'in' },   // downswing: mempercepat sampai dasar busur (90)
+    { dur: down * 0.7, to: { ...base, angleDeg: -30, c: 1 }, mode: 'out' }, // follow-through: melambat
+    { dur: 1.2, to: { ...base, angleDeg: -30, c: 1 }, mode: 'hold' },
+  ], base)) eng.pushObservation(o);
+  return traces;
+}
+
+describe('TraceRecorder + analyzeSwing', () => {
+  it('records one trace for a full golf swing and finds a good tempo', () => {
+    const traces = golfSwing();
+    expect(traces).toHaveLength(1);
+    const m = analyzeSwing(traces[0]);
+    expect(m.valid).toBe(true);
+    expect(m.peakSpeed).toBeGreaterThan(4);
+    expect(m.tempo).toBeGreaterThan(2); expect(m.tempo).toBeLessThan(6);
+    expect(m.direction).toBe(1);                  // downswing ke kanan layar
+    expect(Math.abs(m.leanDeg)).toBeLessThan(40);
+    expect(m.quality).toBeGreaterThan(0.6);
+  });
+
+  it('a rushed, out-of-plane swing scores lower than a smooth one', () => {
+    const good = analyzeSwing(golfSwing()[0]);
+    const bad = analyzeSwing(golfSwing({ back: 0.3, down: 0.3, pitchOut: true })[0]);
+    expect(bad.quality).toBeLessThan(good.quality - 0.15);
+    expect(bad.planeDeviationDeg).toBeGreaterThan(good.planeDeviationDeg);
+  });
+
+  it('does not record while the player keeps fidgeting (never still long enough)', () => {
+    const eng = new MotionEngine(); const traces: SwingTrace[] = [];
+    eng.on('trace', t => traces.push(t));
+    for (const o of poseTimeline([
+      { dur: 0.2, to: R0, mode: 'hold' },
+      { dur: 0.25, to: { ...R0, angleDeg: -150 }, mode: 'ease' },
+      { dur: 0.6, to: { ...R0, angleDeg: -150 }, mode: 'hold' },
+    ], R0)) eng.pushObservation(o);
+    expect(traces).toHaveLength(0);
+  });
+});

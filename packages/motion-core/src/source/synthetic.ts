@@ -30,7 +30,7 @@ export function syntheticObservation(t: number, p: StickPose, aspect = 0.75): Ob
 
 /** Interpolasi pose dengan easing; membangun deret observasi 30 fps. */
 export function* poseTimeline(
-  segments: { dur: number; to: StickPose; mode?: 'hold' | 'lin' | 'ease' }[],
+  segments: { dur: number; to: StickPose; mode?: 'hold' | 'lin' | 'ease' | 'in' | 'out' }[],
   start: StickPose,
   opts: { fps?: number; t0?: number; aspect?: number } = {},
 ): Generator<Observation> {
@@ -44,6 +44,8 @@ export function* poseTimeline(
     for (let i = 1; i <= n; i++) {
       let f = i / n;
       if (seg.mode === 'ease') f = f * f * (3 - 2 * f);
+      if (seg.mode === 'in') f = f * f;               // mempercepat
+      if (seg.mode === 'out') f = 1 - (1 - f) * (1 - f); // memperlambat
       if (seg.mode === 'hold') f = 0;
       const lerp = (a: number, b: number) => a + (b - a) * f;
       yield syntheticObservation(t, {

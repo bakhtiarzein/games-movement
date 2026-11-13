@@ -1,0 +1,8 @@
+{
+  "name": "@games/tennis",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "dev": "vite --host", "build": "vite build" },
+  "dependencies": { "@games/motion-core": "*", "@games/game-kit": "*", "@games/shell": "*", "three": "^0.187.0" }
+}

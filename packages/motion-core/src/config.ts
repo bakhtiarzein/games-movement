@@ -21,6 +21,21 @@ export interface EngineConfig {
     /** peluruhan panjang acuan per detik (relatif) */
     refLengthDecay: number;
   };
+  /** perekam jejak ayunan penuh (golf, analisis ayunan lambat-cepat) */
+  trace: {
+    /** kecepatan di bawah ini dianggap diam (L/s) */
+    stillSpeed: number;
+    /** lama diam sebelum perekam "siap" (ms) */
+    stillMs: number;
+    /** kecepatan awal gerakan (L/s) */
+    startSpeed: number;
+    /** gerakan dianggap selesai bila kecepatan < endSpeed selama endMs */
+    endSpeed: number;
+    endMs: number;
+    maxMs: number;
+    /** puncak kecepatan minimum agar jejak dilaporkan (L/s) */
+    minPeak: number;
+  };
   gesture: {
     /** ambang mulai ayunan (L/s) */
     startThreshold: number;
@@ -45,6 +60,7 @@ export const defaultConfig = (): EngineConfig => ({
     minArea: 14,
   },
   pose: { stickLengthM: 0.6, worldWidthM: 1.6, depthGainM: 1.0, lostTimeoutMs: 180, refLengthDecay: 0.02 },
+  trace: { stillSpeed: 0.5, stillMs: 350, startSpeed: 0.9, endSpeed: 0.7, endMs: 350, maxMs: 3500, minPeak: 1.2 },
   gesture: {
     startThreshold: 3.5,
     endRatio: 0.4,

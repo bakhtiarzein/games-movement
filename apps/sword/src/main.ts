@@ -1,12 +1,9 @@
 import * as THREE from 'three';
-import {
-  MotionEngine, WebcamSource, syntheticObservation, poseTimeline,
-  type GestureEvent, type PoseSample, type WorldPose,
-} from '@games/motion-core';
+import type { GestureEvent, PoseSample, WorldPose } from '@games/motion-core';
+import { MotionInput, Particles, BladeTrail } from '@games/shell';
 import { bladeSweepVsSphere, scoreHit, type Segment } from '@games/game-kit';
 import { Stage, SCALE, Z_BASE, Z_DEPTH_GAIN, Y_CENTER } from './stage';
 import { Sword, BLADE_START, BLADE_LEN } from './sword';
-import { BladeTrail, Particles } from './fx';
 import { Targets, type Target } from './targets';
 import { Sfx } from './audio';
 
@@ -14,13 +11,15 @@ import { Sfx } from './audio';
 const CUT_SPEED = 2.2;       // L/s: di bawah ini sentuhan tidak memotong
 const HIT_Z_SQUASH = 0.3;    // tumbukan hampir 2D: kedalaman hanya berpengaruh sedikit
 const COMBO_WINDOW = 1.6;    // detik
-const PROFILE_KEY = 'neonblade-profile';
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
-/* ---------- engine gerakan (dipakai ulang oleh game lain) ---------- */
-const engine = new MotionEngine({ pose: { stickLengthM: BLADE_LEN, worldWidthM: 1.6, depthGainM: 1.0 } });
-try { const p = localStorage.getItem(PROFILE_KEY); if (p) engine.importProfile(JSON.parse(p)); } catch { /* abaikan */ }
-const saveProfile = () => { try { localStorage.setItem(PROFILE_KEY, JSON.stringify(engine.exportProfile())); } catch { /* abaikan */ } };
+/* ---------- engine gerakan (dipakai ulang oleh game lain lewat @games/shell) ---------- */
+const input = new MotionInput({
+  profileKey: 'neonblade-profile',
+  engine: { pose: { stickLengthM: BLADE_LEN, worldWidthM: 1.6, depthGainM: 1.0 } },
+  onNotice: (t, sub) => banner(t, sub),
+});
+const engine = input.engine;
 
 /* ---------- dunia 3D ---------- */
 const stage = new Stage($('stage'));
@@ -32,7 +31,7 @@ const sfx = new Sfx();
 
 type Mode = 'menu' | 'calibrate' | 'playing' | 'over';
 const G = {
-  mode: 'menu' as Mode, input: null as null | 'camera' | 'mouse',
+  mode: 'menu' as Mode,
   score: 0, combo: 0, lives: 3, best: 0, lastSlice: -99, hits: 0, bombs: 0, gestures: 0, thrusts: 0, thrustReady: 0,
   poses: 0,
 };
@@ -54,7 +53,7 @@ const sq = (v: THREE.Vector3) => ({ x: v.x, y: v.y, z: Z_BASE + (v.z - Z_BASE) *
 let prevSeg: ReturnType<typeof segFrom> | null = null;
 let lastPose: PoseSample | null = null;
 
-engine.on('trackingChanged', ({ tracking }) => { target.snap = true; prevSeg = null; if (!tracking) target.has = false; updateChip(); });
+engine.on('trackingChanged', ({ tracking }) => { target.snap = true; prevSeg = null; if (!tracking) target.has = false; });
 engine.on('pose', pose => {
   G.poses++; lastPose = pose;
   const g = toGame(pose.world);
@@ -156,21 +155,13 @@ function renderHud() {
   $('combo').textContent = G.combo > 1 ? `KOMBO ×${G.combo}` : '';
   $('lives').innerHTML = [0, 1, 2].map(i => `<i class="${i < G.lives ? 'on' : ''}">♥</i>`).join('');
 }
-function updateChip() {
-  const c = $('chip');
-  const lost = G.mode === 'playing' && G.input === 'camera' && !engine.isTracking;
-  c.style.display = lost ? 'block' : 'none'; c.className = lost ? 'warn' : '';
-  if (lost) c.textContent = 'Tongkat tidak terdeteksi — tampilkan ujung hijau & gagang biru ke kamera';
-}
-
 /* ---------- alur game ---------- */
 function startGame() {
   sfx.init();
   G.score = 0; G.combo = 0; G.lives = 3; G.hits = 0; G.bombs = 0; G.thrusts = 0; G.mode = 'playing';
   targets.reset(); renderHud();
-  $('menu').classList.add('hidden'); $('over').classList.add('hidden'); $('calib').style.display = 'none';
-  $('pip').classList.remove('large'); $('pip').style.display = G.input === 'camera' ? 'block' : 'none';
-  updateChip();
+  $('menu').classList.add('hidden'); $('over').classList.add('hidden');
+  input.setPlaying(true);
 }
 function endGame() {
   G.mode = 'over';
@@ -178,103 +169,26 @@ function endGame() {
   $('finalScore').textContent = String(G.score);
   $('bestLine').textContent = `Terbaik: ${G.best} · ${G.hits} orb terbelah`;
   setTimeout(() => $('over').classList.remove('hidden'), 700);
-  updateChip();
+  input.setPlaying(false);
 }
 $('bAgain').onclick = () => startGame();
-$('bMenu').onclick = () => { G.mode = 'menu'; $('over').classList.add('hidden'); $('menu').classList.remove('hidden'); };
+$('bMenu').onclick = () => { input.setPlaying(false); G.mode = 'menu'; $('over').classList.add('hidden'); $('menu').classList.remove('hidden'); };
 
-/* ---------- input: mouse / sentuh (mode demo) ---------- */
-const pointer = { nx: 0.5, ny: 0.5, inside: false, vx: 0, lastNx: 0.5, lean: 0 };
-let script: Generator<ReturnType<typeof syntheticObservation>> | null = null;
-addEventListener('pointermove', e => { pointer.nx = e.clientX / innerWidth; pointer.ny = e.clientY / innerHeight; pointer.inside = true; });
-addEventListener('pointerdown', e => { pointer.nx = e.clientX / innerWidth; pointer.ny = e.clientY / innerHeight; pointer.inside = true; });
-document.addEventListener('pointerleave', () => { pointer.inside = false; });
-let lastMouseT = 0;
-function mouseStep(now: number) {
-  const dt = Math.max(0.001, (now - lastMouseT) / 1000); lastMouseT = now;
-  if (script) {
-    const r = script.next();
-    if (!r.done) { engine.pushObservation({ ...r.value, t: now }); return; }
-    script = null;
-  }
-  if (!pointer.inside) { engine.pushObservation({ t: now, aspect: 0.75, tip: null, handle: null }); return; }
-  pointer.vx = pointer.vx * 0.8 + ((pointer.nx - pointer.lastNx) / dt) * 0.2; pointer.lastNx = pointer.nx;
-  pointer.lean += (Math.max(-30, Math.min(30, pointer.vx * 14)) - pointer.lean) * 0.2;
-  engine.pushObservation(syntheticObservation(now, { hx: pointer.nx, hy: pointer.ny * 0.75, angleDeg: -90 + pointer.lean }));
-}
-/** Spasi di mode demo = tusuk ke kamera (mendekat + memendek) */
-function demoThrust() {
-  if (G.input !== 'mouse' || script) return;
-  const base = { hx: pointer.nx, hy: pointer.ny * 0.75, angleDeg: -90 };
-  script = poseTimeline([
-    { dur: 0.25, to: { ...base, k: 1.5, c: 0.5 }, mode: 'ease' },
-    { dur: 0.5, to: { ...base, k: 1.5, c: 0.5 }, mode: 'hold' },
-    { dur: 0.3, to: { ...base, k: 1, c: 1 }, mode: 'lin' },
-  ], base, { fps: 60 });
-}
-addEventListener('keydown', e => {
-  if (e.code === 'Space') { e.preventDefault(); demoThrust(); }
-  if (e.key === 'c' || e.key === 'C') { engine.calibrate(); saveProfile(); banner('KALIBRASI', 'panjang & kedalaman direset'); }
-});
-
-/* ---------- input: webcam ---------- */
-let webcam: WebcamSource | null = null;
-const pip = $<HTMLCanvasElement>('pip'); const pctx = pip.getContext('2d')!;
-let pickMode: 'tip' | 'handle' | null = null;
-function setPick(m: 'tip' | 'handle' | null) {
-  pickMode = m;
-  $('cTip').classList.toggle('on', m === 'tip'); $('cHandle').classList.toggle('on', m === 'handle');
-  $('calibHelp').innerHTML = m ? `Klik warna <b>${m === 'tip' ? 'ujung (hijau)' : 'gagang (biru)'}</b> tongkat pada gambar kamera.` : 'Pilih warna ujung & gagang bila deteksi kurang pas, lalu pegang tongkat <b>mendatar</b> menghadap kamera dan tekan <b>3</b>.';
-}
-async function startCamera() {
-  $('err').textContent = '';
-  try {
-    sfx.init();
-    webcam = new WebcamSource({ processWidth: 320 });
-    webcam.onFrame(f => engine.pushFrame(f));
-    await webcam.start();
-  } catch (e) {
-    $('err').textContent = 'Kamera tidak bisa dibuka: ' + (e as Error).message + '. Coba mode demo, atau izinkan akses kamera.';
-    return;
-  }
-  G.input = 'camera'; G.mode = 'calibrate';
-  $('menu').classList.add('hidden'); $('calib').style.display = 'block';
-  pip.style.display = 'block'; pip.classList.add('large'); setPick(null);
-}
-function startMouse() { G.input = 'mouse'; lastMouseT = performance.now(); startGame(); }
-$('bCam').onclick = () => void startCamera();
-$('bMouse').onclick = () => startMouse();
-$('cTip').onclick = () => setPick(pickMode === 'tip' ? null : 'tip');
-$('cHandle').onclick = () => setPick(pickMode === 'handle' ? null : 'handle');
-$('cLen').onclick = () => { engine.calibrate(); saveProfile(); banner('KALIBRASI', 'panjang tongkat tersimpan'); };
-$('cGo').onclick = () => { saveProfile(); startGame(); };
-pip.addEventListener('click', e => {
-  if (!pickMode) return;
-  const r = pip.getBoundingClientRect();
-  const p = engine.pickColor(pickMode, (e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height);
-  if (p) { saveProfile(); setPick(null); }
-});
-addEventListener('keydown', e => { if (G.mode === 'calibrate' && e.key === '3') $('cLen').click(); });
-
-function drawPip() {
-  if (!webcam || pip.style.display === 'none') return;
-  const w = pip.width, h = pip.height = Math.round(pip.width * (webcam.video.videoHeight / webcam.video.videoWidth || 0.75));
-  pctx.save(); pctx.setTransform(-1, 0, 0, 1, w, 0); pctx.drawImage(webcam.video, 0, 0, w, h); pctx.restore();
-  const o = engine.lastObservation;
-  if (o) {
-    const ring = (b: { x: number; y: number } | null, c: string) => { if (!b) return; pctx.strokeStyle = c; pctx.lineWidth = 3; pctx.beginPath(); pctx.arc(b.x * w, b.y * w, 12, 0, 6.2832); pctx.stroke(); };
-    ring(o.tip, '#46e07a'); ring(o.handle, '#4c8dff');
-    if (o.tip && o.handle) { pctx.strokeStyle = '#ffe14d'; pctx.lineWidth = 2; pctx.beginPath(); pctx.moveTo(o.handle.x * w, o.handle.y * w); pctx.lineTo(o.tip.x * w, o.tip.y * w); pctx.stroke(); }
-    if (!o.tip || !o.handle) { pctx.fillStyle = '#ffb84d'; pctx.font = '600 14px system-ui'; pctx.fillText(!o.tip && !o.handle ? 'Tongkat tidak terdeteksi' : !o.tip ? 'Ujung hijau tidak terlihat' : 'Gagang biru tidak terlihat', 10, 22); }
-  }
-}
+/* ---------- input: webcam atau mouse (mode demo) ---------- */
+$('bCam').onclick = async () => {
+  sfx.init();
+  const err = await input.startCamera(() => { G.mode = 'playing'; startGame(); });
+  if (err) { $('err').textContent = err; return; }
+  G.mode = 'calibrate'; $('menu').classList.add('hidden');
+};
+$('bMouse').onclick = () => { input.startMouse(); startGame(); };
 
 /* ---------- loop ---------- */
 let last = performance.now();
 function frame(now: number) {
   requestAnimationFrame(frame);
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
-  if (G.input === 'mouse') mouseStep(now);
+  input.step(now);
   let sdt = dt;
   if (hitstop > 0) { hitstop -= dt; sdt = dt * 0.08; }
   const t = now / 1000;
@@ -295,11 +209,9 @@ function frame(now: number) {
     if (k >= 1) { stage.scene.remove(r.mesh); rings.splice(i, 1); }
   }
   stage.render(dt);
-  drawPip();
 }
 renderHud();
 requestAnimationFrame(frame);
-setInterval(updateChip, 300);
 
 // untuk debugging dan tes otomatis
-(window as unknown as { __game: unknown }).__game = { G, engine, targets, sword, stage, get lastPose() { return lastPose; } };
+(window as unknown as { __game: unknown }).__game = { G, engine, input, targets, sword, stage, get lastPose() { return lastPose; } };

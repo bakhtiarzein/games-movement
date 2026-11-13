@@ -4,6 +4,8 @@ export { MotionEngine, type CalibrationProfile } from './engine';
 export { ColorTracker } from './tracker/colorTracker';
 export { PoseEstimator } from './pose/poseEstimator';
 export { SwingRecognizer } from './gesture/swingRecognizer';
+export { TraceRecorder } from './gesture/traceRecorder';
+export { analyzeSwing, type SwingMetrics } from './gesture/analysis';
 export { OneEuro } from './pose/oneEuro';
 export { clamp, quatFromYTo } from './pose/math';
 export { WebcamSource, type WebcamOptions } from './source/webcam';

@@ -1,8 +1,5 @@
 import * as THREE from 'three';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { PostFX } from '@games/shell';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 /** Konstanta ruang game. Pose dunia (meter) dipetakan ke sini oleh `toGame` di main.ts. */
@@ -16,24 +13,19 @@ export class Stage {
   readonly renderer: THREE.WebGLRenderer;
   readonly scene = new THREE.Scene();
   readonly camera: THREE.PerspectiveCamera;
-  private composer: EffectComposer;
-  private bloom: UnrealBloomPass;
+  private post: PostFX;
   private baseCam = new THREE.Vector3(0, 1.2, 4);
   private shake = 0;
   private lights: THREE.PointLight[] = [];
   private t = 0;
   private moon: THREE.Sprite;
 
-  constructor(private container: HTMLElement) {
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 0.8;
-    container.appendChild(this.renderer.domElement);
-
+  constructor(container: HTMLElement) {
     this.camera = new THREE.PerspectiveCamera(55, 1, 0.1, 200);
     this.camera.position.copy(this.baseCam);
     this.camera.lookAt(0, Y_CENTER, Z_BASE);
+    this.post = new PostFX(container, this.scene, this.camera, { exposure: 0.8, bloom: { strength: 0.55, radius: 0.5, threshold: 0.9 } });
+    this.renderer = this.post.renderer;
 
     this.scene.background = new THREE.Color(0x070914);
     this.scene.fog = new THREE.FogExp2(0x0a0c1e, 0.02);
@@ -45,25 +37,6 @@ export class Stage {
     this.buildFloor();
     this.buildLights();
     this.moon = this.buildMoon();
-
-    this.composer = new EffectComposer(this.renderer);
-    this.composer.addPass(new RenderPass(this.scene, this.camera));
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.55, 0.5, 0.9);
-    this.composer.addPass(this.bloom);
-    this.composer.addPass(new OutputPass());
-
-    addEventListener('resize', () => this.resize());
-    this.resize();
-  }
-
-  resize() {
-    const w = this.container.clientWidth || innerWidth, h = this.container.clientHeight || innerHeight;
-    this.renderer.setSize(w, h);
-    this.composer.setSize(w, h);
-    this.camera.aspect = w / h;
-    // jaga medan pandang horizontal tetap terlihat di layar sempit
-    this.camera.fov = w / h < 1.4 ? 55 + (1.4 - w / h) * 22 : 55;
-    this.camera.updateProjectionMatrix();
   }
 
   addShake(a: number) { this.shake = Math.min(1, this.shake + a); }
@@ -130,18 +103,17 @@ export class Stage {
   }
 
   /** Cahaya warna ikut berkedip kecil saat ada tebasan. */
-  pulse(color: number) { this.lights.forEach(l => l.color.lerp(new THREE.Color(color), 0.5)); this.bloom.strength = 0.95; }
+  pulse(color: number) { this.lights.forEach(l => l.color.lerp(new THREE.Color(color), 0.5)); this.post.kick(0.95); }
 
   render(dt: number) {
     this.t += dt;
     this.shake = Math.max(0, this.shake - dt * 2.2);
     const s = this.shake * this.shake * 0.12;
     this.camera.position.set(this.baseCam.x + (Math.random() - 0.5) * s, this.baseCam.y + (Math.random() - 0.5) * s, this.baseCam.z);
-    this.bloom.strength += (0.55 - this.bloom.strength) * Math.min(1, dt * 4);
     const l0 = this.lights[0], l1 = this.lights[1];
     l0.color.lerp(new THREE.Color(0xff3fa4), dt * 2); l1.color.lerp(new THREE.Color(0x2fe3ff), dt * 2);
     l0.position.x = -5 + Math.sin(this.t * 0.6) * 0.8; l1.position.x = 5 + Math.cos(this.t * 0.5) * 0.8;
     this.moon.scale.setScalar(70 * (1 + Math.sin(this.t * 0.4) * 0.015));
-    this.composer.render();
+    this.post.render(dt);
   }
 }

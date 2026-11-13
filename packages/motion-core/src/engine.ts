@@ -2,6 +2,7 @@ import { defaultConfig, mergeConfig, type DeepPartial, type EngineConfig } from 
 import { ColorTracker } from './tracker/colorTracker';
 import { PoseEstimator } from './pose/poseEstimator';
 import { SwingRecognizer } from './gesture/swingRecognizer';
+import { TraceRecorder } from './gesture/traceRecorder';
 import type { ColorProfile, EngineEvents, FrameData, Observation, PoseSample, Recording } from './types';
 
 type Listener<K extends keyof EngineEvents> = (e: EngineEvents[K]) => void;
@@ -24,6 +25,7 @@ export class MotionEngine {
   readonly tracker: ColorTracker;
   private poseEst: PoseEstimator;
   private recognizer: SwingRecognizer;
+  private tracer: TraceRecorder;
   private listeners = new Map<keyof EngineEvents, Set<(e: any) => void>>();
   private recording: Observation[] | null = null;
   private tracking = false;
@@ -38,6 +40,7 @@ export class MotionEngine {
     this.tracker = new ColorTracker(this.cfg.tracker);
     this.poseEst = new PoseEstimator(this.cfg.pose);
     this.recognizer = new SwingRecognizer(this.cfg.gesture, this.cfg.pose.stickLengthM);
+    this.tracer = new TraceRecorder(this.cfg.trace);
   }
 
   on<K extends keyof EngineEvents>(ev: K, cb: Listener<K>): () => void {
@@ -55,6 +58,7 @@ export class MotionEngine {
     this.tracker.setConfig(this.cfg.tracker);
     this.poseEst.setConfig(this.cfg.pose);
     this.recognizer.setConfig(this.cfg.gesture, this.cfg.pose.stickLengthM);
+    this.tracer.setConfig(this.cfg.trace);
   }
 
   /** Masukkan frame kamera (diperkecil, dicerminkan). Menjalankan tracker. */
@@ -73,6 +77,8 @@ export class MotionEngine {
       this.setTracking(true, obs.t);
       this.emit('pose', pose);
       for (const g of this.recognizer.push(pose)) this.emit('gesture', g);
+      const tr = this.tracer.push(pose);
+      if (tr) this.emit('trace', tr);
     } else {
       this.recognizer.missing(obs.t);
       if (obs.t - this.poseEst.lastSeen > this.cfg.pose.lostTimeoutMs) { this.pose = null; this.setTracking(false, obs.t); }
@@ -83,10 +89,13 @@ export class MotionEngine {
   private setTracking(v: boolean, t: number) {
     if (v === this.tracking) return;
     this.tracking = v;
-    if (!v) this.recognizer.reset();
+    if (!v) { this.recognizer.reset(); this.tracer.reset(); }
     this.emit('trackingChanged', { tracking: v, t });
   }
   get isTracking() { return this.tracking; }
+  /** true saat pemain sudah diam cukup lama sehingga ayunan berikutnya akan direkam sebagai jejak penuh. */
+  get swingReady() { return this.tracer.ready; }
+  get swingRecording() { return this.tracer.recording; }
 
   /** Panjang tongkat penuh dan kedalaman nol = pose sekarang. Panggil saat tongkat tegak lurus ke kamera. */
   calibrate() { this.poseEst.calibrate(); }

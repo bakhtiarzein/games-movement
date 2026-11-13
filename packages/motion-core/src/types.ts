@@ -111,8 +111,29 @@ export interface GestureEvent {
   t1: number;
 }
 
+/** satu cuplikan pose dalam jejak ayunan. y gambar ke bawah. */
+export interface TraceSample {
+  t: number;
+  tip: Vec2;
+  handle: Vec2;
+  speed: number;
+  velocity: Vec2;
+  angleDeg: number;
+  pitchDeg: number;
+  length: number;
+}
+
+/** Rekaman satu gerakan utuh, dari mulai bergerak sampai diam lagi (termasuk ayunan balik/backswing). */
+export interface SwingTrace {
+  samples: TraceSample[];
+  t0: number;
+  t1: number;
+  peakSpeed: number;
+}
+
 export interface EngineEvents {
   pose: PoseSample;
+  trace: SwingTrace;
   gesture: GestureEvent;
   trackingChanged: { tracking: boolean; t: number };
 }
